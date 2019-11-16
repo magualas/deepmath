@@ -40,6 +40,7 @@ def tfrecord_dataset_with_source(files, source):
 #   return tfrecord_dataset_with_source(files, SOURCE_DATASETDIR)
 
 def get_train_dataset(params):
+<<<<<<< HEAD
   path = os.path.join(params.dataset_dir, 'train') # 'train*')
   files =  tf.io.gfile.listdir(path)
   files = [os.path.join(path, f) for f in files if 'pbtxt' not in f]
@@ -47,6 +48,15 @@ def get_train_dataset(params):
   if not files:
     raise ValueError('No training files found in %s' % path)
   return tfrecord_dataset_with_source(files, SOURCE_DATASETDIR)
+=======
+    path = os.path.join(params.dataset_dir, 'train')
+    files = tf.io.gfile.listdir(path)
+    files = [os.path.join(path, f) for f in files if 'pbtxt' not in f]
+    
+    if not files:
+        raise ValueError('No training files found in %s' % path)
+    return tfrecord_dataset_with_source(files, SOURCE_DATASETDIR)
+>>>>>>> 188feb119b8fe24dd04b16142772ecb97062c80d
 
 # def get_holparam_dataset_original(mode, params):
 #   """Create a Holparam dataset from train or test data.
