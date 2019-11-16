@@ -6,7 +6,6 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-
 class Params(dict):
   """Very simple Hyperparameter wrapper around dictionaries."""
 

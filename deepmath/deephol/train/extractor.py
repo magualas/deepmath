@@ -8,8 +8,7 @@ import os
 
 import tensorflow as tf
 
-from deepmath.deephol.train import utils
-
+import utils
 
 class Extractor(object):
   """Extract terms/thms and tokenize based on vocab.
