@@ -32,14 +32,52 @@ WAIT_SECONDS = 60
 def tfrecord_dataset_with_source(files, source):
   return tf.data.TFRecordDataset(files).map(lambda value: (value, source))
 
+# def get_train_dataset_original(params):
+#   path = os.path.join(params.dataset_dir, 'train') # 'train*')
+#   files =  tf.io.gfile.glob(path)
+#   if not files:
+#     raise ValueError('No training files found in %s' % path)
+#   return tfrecord_dataset_with_source(files, SOURCE_DATASETDIR)
 
 def get_train_dataset(params):
-  path = os.path.join(params.dataset_dir, 'train', 'train*')
-  files = tf.gfile.Glob(path)
+  path = os.path.join(params.dataset_dir, 'train') # 'train*')
+  files =  tf.io.gfile.listdir(path)
+  files = [os.path.join(path, f) for f in files if 'pbtxt' not in f]
+#   return tf.data.TFRecordDataset(files)
   if not files:
     raise ValueError('No training files found in %s' % path)
   return tfrecord_dataset_with_source(files, SOURCE_DATASETDIR)
 
+# def get_holparam_dataset_original(mode, params):
+#   """Create a Holparam dataset from train or test data.
+
+#   Optionally sample from fresh examples at a rate given by fresh_example_prob,
+#   and historical examples at a rate given by historical_example_prob.
+
+#   Args:
+#     mode: The mode for the input, one of the ModeKeys. Dataset is repeated in
+#       TRAIN mode.
+#     params: Hyperparameters for the input.
+
+#   Returns:
+#     dataset: A tf.data.Dataset object.
+#   """
+#   if mode == TRAIN:
+#     return get_train_dataset(params).repeat()
+
+#   if mode == EVAL:
+#     if params.eval_dataset_dir:
+#       path = os.path.join(params.eval_dataset_dir, 'valid*')
+#     else:
+#       path = os.path.join(params.dataset_dir, 'valid') #, 'valid*')
+#     files =  tf.io.gfile.glob(path)
+#     tf.logging.info('EVAL files: %s.', ' '.join([str(f) for f in files]))
+#     if not files:
+#       raise ValueError('No eval files found in %s' % path)
+
+#     return tfrecord_dataset_with_source(files, SOURCE_DATASETDIR)
+
+#   raise ValueError('Unrecognized mode %s' % mode)
 
 def get_holparam_dataset(mode, params):
   """Create a Holparam dataset from train or test data.
@@ -62,10 +100,10 @@ def get_holparam_dataset(mode, params):
     if params.eval_dataset_dir:
       path = os.path.join(params.eval_dataset_dir, 'valid*')
     else:
-      path = os.path.join(params.dataset_dir, 'valid', 'valid*')
-    files = tf.gfile.Glob(path)
-
-    tf.logging.info('EVAL files: %s.', ' '.join([str(f) for f in files]))
+      path = os.path.join(params.dataset_dir, 'valid') #, 'valid*')
+    files =  tf.io.gfile.listdir(path)
+    files = [os.path.join(path, f) for f in files if 'pbtxt' not in f]
+#     tf.logging.info('EVAL files: %s.', ' '.join([str(f) for f in files]))
     if not files:
       raise ValueError('No eval files found in %s' % path)
 
@@ -171,6 +209,36 @@ def pairwise_thm_parser(serialized_example, source, params):
 
   return features, labels
 
+def tristan_parser(serialized_example, source, params):
+  """Strips out a tactic id, goal term string, and goal_asl (hypotheses).
+
+  Args:
+    serialized_example: A tf.Example for a parameterized tactic application.
+    source: source of the example.
+    params: Hyperparameters for the input.
+
+  Returns:
+    features['goal']: a string of the goal term.
+    features['thms']: a string of a randomly chosen thm parameter or empty str.
+    features['thms_hard_negatives']: list of strings, each a hard negative.
+      Size controlled via params.
+    labels['tac_id']: integer id of tactic applied.
+  """
+  del source  # unused
+
+  feature_list = ['goal', 'thms', 'thms_hard_negatives']
+  label_list = ['tac_id']
+  features, labels = generic_parser(
+      serialized_example, feature_list=feature_list, label_list=label_list)
+
+  # thms: pick one uniformily at random
+  features['thms'] = _choose_one_theorem_at_random(features['thms'])
+
+  # thms_hard_negatives: Shuffle, truncate and then pad with '<NULL>'.
+  features['thms_hard_negatives'] = _shuffle_and_truncate_hard_negatives(
+      features['thms_hard_negatives'], params)
+
+  return features, labels
 
 def get_input_fn(dataset_fn,
                  mode,
@@ -231,6 +299,8 @@ def get_input_fn(dataset_fn,
     drop = mode == EVAL
 
     ds = ds.batch(params['batch_size'], drop_remainder=drop)
+    
+    
     return ds.make_one_shot_iterator().get_next()
 
   return input_fn
