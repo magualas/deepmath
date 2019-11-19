@@ -32,12 +32,6 @@ WAIT_SECONDS = 60
 def tfrecord_dataset_with_source(files, source):
   return tf.data.TFRecordDataset(files).map(lambda value: (value, source))
 
-# def get_train_dataset_original(params):
-#   path = os.path.join(params.dataset_dir, 'train') # 'train*')
-#   files =  tf.io.gfile.glob(path)
-#   if not files:
-#     raise ValueError('No training files found in %s' % path)
-#   return tfrecord_dataset_with_source(files, SOURCE_DATASETDIR)
 
 def get_train_dataset(params):
   path = os.path.join(params.dataset_dir, 'train') # 'train*')
@@ -48,69 +42,14 @@ def get_train_dataset(params):
     raise ValueError('No training files found in %s' % path)
   return tfrecord_dataset_with_source(files, SOURCE_DATASETDIR)
 
+def get_eval_dataset(params):
+  path = os.path.join(params.dataset_dir, 'valid') # 'train*')
+  files =  tf.io.gfile.listdir(path)
+  files = [os.path.join(path, f) for f in files if 'pbtxt' not in f]
+  if not files:
+    raise ValueError('No training files found in %s' % path)
+  return tfrecord_dataset_with_source(files, SOURCE_DATASETDIR)
 
-# def get_holparam_dataset_original(mode, params):
-#   """Create a Holparam dataset from train or test data.
-
-#   Optionally sample from fresh examples at a rate given by fresh_example_prob,
-#   and historical examples at a rate given by historical_example_prob.
-
-#   Args:
-#     mode: The mode for the input, one of the ModeKeys. Dataset is repeated in
-#       TRAIN mode.
-#     params: Hyperparameters for the input.
-
-#   Returns:
-#     dataset: A tf.data.Dataset object.
-#   """
-#   if mode == TRAIN:
-#     return get_train_dataset(params).repeat()
-
-#   if mode == EVAL:
-#     if params.eval_dataset_dir:
-#       path = os.path.join(params.eval_dataset_dir, 'valid*')
-#     else:
-#       path = os.path.join(params.dataset_dir, 'valid') #, 'valid*')
-#     files =  tf.io.gfile.glob(path)
-#     tf.logging.info('EVAL files: %s.', ' '.join([str(f) for f in files]))
-#     if not files:
-#       raise ValueError('No eval files found in %s' % path)
-
-#     return tfrecord_dataset_with_source(files, SOURCE_DATASETDIR)
-
-#   raise ValueError('Unrecognized mode %s' % mode)
-
-def get_holparam_dataset(mode, params):
-  """Create a Holparam dataset from train or test data.
-
-  Optionally sample from fresh examples at a rate given by fresh_example_prob,
-  and historical examples at a rate given by historical_example_prob.
-
-  Args:
-    mode: The mode for the input, one of the ModeKeys. Dataset is repeated in
-      TRAIN mode.
-    params: Hyperparameters for the input.
-
-  Returns:
-    dataset: A tf.data.Dataset object.
-  """
-  if mode == TRAIN:
-    return get_train_dataset(params).repeat()
-
-  if mode == EVAL:
-    if params.eval_dataset_dir:
-      path = os.path.join(params.eval_dataset_dir, 'valid*')
-    else:
-      path = os.path.join(params.dataset_dir, 'valid') #, 'valid*')
-    files =  tf.io.gfile.listdir(path)
-    files = [os.path.join(path, f) for f in files if 'pbtxt' not in f]
-#     tf.logging.info('EVAL files: %s.', ' '.join([str(f) for f in files]))
-    if not files:
-      raise ValueError('No eval files found in %s' % path)
-
-    return tfrecord_dataset_with_source(files, SOURCE_DATASETDIR)
-
-  raise ValueError('Unrecognized mode %s' % mode)
 
 
 def generic_parser(serialized_example, feature_list, label_list):
