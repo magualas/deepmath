@@ -102,7 +102,7 @@ def _choose_one_theorem_at_random(thms):
                                      maxval=size_of_thms,
                                      dtype=tf.int32)
     return thms[random_index]
-
+  
   return tf.cond(size_of_thms > 0, get_an_element, lambda: '')
 
 
@@ -150,7 +150,7 @@ def pairwise_thm_parser(serialized_example, source, params):
   return features, labels
 
 def tristan_parser(serialized_example, source, params):
-  """Strips out a tactic id, goal term string, and goal_asl (hypotheses).
+  """Strips out a tactic id, goal term string, goal_asl (hypotheses) and theorems.
 
   Args:
     serialized_example: A tf.Example for a parameterized tactic application.
@@ -159,24 +159,22 @@ def tristan_parser(serialized_example, source, params):
 
   Returns:
     features['goal']: a string of the goal term.
-    features['thms']: a string of a randomly chosen thm parameter or empty str.
+    features['thms']: theorems
     features['thms_hard_negatives']: list of strings, each a hard negative.
       Size controlled via params.
     labels['tac_id']: integer id of tactic applied.
   """
   del source  # unused
 
-  feature_list = ['goal', 'thms', 'thms_hard_negatives']
+  feature_list = ['goal', 'goal_asl', 'thms', 'thms_hard_negatives']
   label_list = ['tac_id']
   features, labels = generic_parser(
       serialized_example, feature_list=feature_list, label_list=label_list)
-
-  # thms: pick one uniformily at random
-  features['thms'] = _choose_one_theorem_at_random(features['thms'])
+  
+#   features['thms'] = tf.size(features['thms']) #_choose_one_theorem_at_random(features['thms'])
 
   # thms_hard_negatives: Shuffle, truncate and then pad with '<NULL>'.
-  features['thms_hard_negatives'] = _shuffle_and_truncate_hard_negatives(
-      features['thms_hard_negatives'], params)
+  features['thms_hard_negatives'] = tf.size(features['thms'])
 
   return features, labels
 
@@ -217,7 +215,7 @@ def get_input_fn(dataset_fn,
 
   if parser is None:
     tf.logging.info('PASSED IN parser is None')
-    parser = pairwise_thm_parser
+    parser = tristan_parser #pairwise_thm_parser
 
   def input_fn():
     """Input Function for estimator."""
