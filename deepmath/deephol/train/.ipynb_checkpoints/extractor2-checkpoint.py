@@ -32,11 +32,16 @@ class Extractor(object):
     dataset_dir = params['dataset_dir']
     goal_file = os.path.join(dataset_dir, params['goal_vocab'])
     self.goal_table = utils.vocab_table_from_file(goal_file)
+    
     if params['thm_vocab'] is not None:
       thms_file = os.path.join(dataset_dir, params['thm_vocab'])
       self.thms_table = utils.vocab_table_from_file(thms_file)
     else:
       self.thms_table = self.goal_table
+    
+    #vocab file joining goals and thms vocab
+    vocab_file = os.path.join(dataset_dir, params['vocab'])
+    self.vocab_table = utils.vocab_table_from_file(vocab_file)
 
   def tokenize(self, tm, table):
     """Tokenizes tensor string according to lookup table."""

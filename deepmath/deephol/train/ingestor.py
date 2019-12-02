@@ -47,6 +47,7 @@ class DataInfo(object):
         self.eval_dataset_dir = eval_dataset_dir
         self.goal_vocab = 'vocab_goal_ls.txt'
         self.thm_vocab = 'vocab_thms_ls.txt'
+        self.vocab = 'vocab_ls.txt'
         self.truncate_size = 1000
         self.ratio_neg_examples=7
         self.ratio_max_hard_negative_examples=5
@@ -58,6 +59,7 @@ class DataInfo(object):
                 'eval_dataset_dir': self.eval_dataset_dir,
                 'goal_vocab': self.goal_vocab,
                 'thm_vocab': self.thm_vocab,
+                'vocab': self.vocab,
                 'truncate_size': self.truncate_size,
                 'ratio_neg_examples': self.ratio_neg_examples, 
                 'ratio_max_hard_negative_examples': self.ratio_max_hard_negative_examples, 
