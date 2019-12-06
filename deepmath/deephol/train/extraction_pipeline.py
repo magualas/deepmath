@@ -21,6 +21,11 @@ import functools
 
 # config
 BUCKET_NAME = 'sagemaker-cs281'
+paths = {
+    'train':'deephol-data-processed/proofs/human/train',
+    'valid':'',
+    'test':''
+}
 
 
 def run_extraction_pipeline():
@@ -38,7 +43,7 @@ def run_extraction_pipeline():
 
     # iterate over dataset to extract data into arrays. 
     # remove 'take' part to iterate over the entire dataset
-    train_parsed = train_parsed.take(10)
+    train_parsed = train_parsed.take(2000)
     for raw_record in train_parsed:
         fx, lx = raw_record[0], raw_record[1]
         features['goal'].append(fx['goal'])
@@ -84,27 +89,26 @@ def run_extraction_pipeline():
     del features['thms']
     del features['thms_hard_negatives']
 
-#     # tests
-#     print(features['goal_ids'][0].numpy())
-#     print(features['goal_asl_ids'][0][0].numpy())
-#     print(labels['tac_id'][0].numpy())
-
-    # make arrays
+    # make into an array and upload to s3
+    # features: goals
     goals_array = np.array(features['goal_ids'])
-    hypotheses_array = np.array(features['goal_asl_ids'])
+    upload_np_to_s3(goals_array, os.path.join(paths['train'], 'goal_ids.csv'))
+    del goals_array
+    
+    # features: hypotheses
+    for i, hyp in enumerate(features['goal_asl_ids']):
+        upload_np_to_s3(np.array(hyp), 
+                        os.path.join(paths['train'], 'goal_asl_ids_{}.csv'.format(i)))
+    del features['goal_asl_ids']
+    
+    # labels: tactid ids
     labels_array = np.array(labels['tac_id'])
+    upload_np_to_s3(labels_array, os.path.join(paths['train'], 'tac_id.csv'))
+    del labels_array
     
-    # upload to s3
-    
+    print('Successfully uploaded to s3 the goals, hypotheses and labels')
     
 
-
-
-    
-    
-train_objs =  'deephol-data-processed/proofs/human/train'
-    
-    
 def upload_np_to_s3(array, object_name):    
     # save localy
     local_filename = '/tmp/temp.csv'
