@@ -23,11 +23,14 @@ import progressbar
 BUCKET_NAME = 'sagemaker-cs281'
 paths = {
     'train':'deephol-data-processed/proofs/human/train',
-    'valid':'',
-    'test':''
+    'valid':'deephol-data-processed/proofs/human/valid',
+    'test':'deephol-data-processed/proofs/human/test'
 }
 
-def run_extraction_pipeline():
+def run_extraction_pipeline(data_split=None):
+    if not data_split:
+        raise Exception('Need to specifiy if train, test or valid')
+        
     # get dataset parameters
     params = ingestor.get_params()
 
@@ -41,9 +44,9 @@ def run_extraction_pipeline():
     labels = {'tac_id': []}
 
     # iterate over dataset to extract data into arrays. 
-    maxval_bar = 10000
+    maxval_bar = 400000
     pbar = progressbar.ProgressBar(maxval=maxval_bar)
-    train_parsed = train_parsed.take(10000)  # remove 'take' part to iterate over the entire dataset
+    train_parsed = train_parsed  # remove 'take' part to iterate over the entire dataset
     for raw_record in pbar(train_parsed):
         fx, lx = raw_record[0], raw_record[1]
         features['goal'].append(fx['goal'])
@@ -62,16 +65,19 @@ def run_extraction_pipeline():
 
     # tokenize hypotheses. this requires more work since there may be more than one hypothesis
     length = len(features['goal'])
-    features['goal_asl_ids'] = []
-    for i in range(length):
-        temp = ex.tokenize(features['goal_asl'][i], ex.vocab_table)
+    features['goal_asl_ids'] =  [[]] * length
+    print('1')
+    pbar2 = progressbar.ProgressBar()
+    print('2')
+    for i in pbar2(range(length)):
         # pad all hypotheses to be of length 1000
-        hypo_list = []
+        temp = ex.tokenize(features['goal_asl'][i], ex.vocab_table)
+        hypo_list = [[]] * len(temp)
         for j in range(len(temp)):
             l = len(temp[j])
             h = tf.pad(temp[j], [[0, 1000-l]], constant_values=0)
-            hypo_list.append(h)
-        features['goal_asl_ids'].append(hypo_list)
+            hypo_list[j] = h
+        features['goal_asl_ids'][i] = np.array(hypo_list)
     print('Success: tokenizing hypotheses')
 
     # free up memory
@@ -83,21 +89,22 @@ def run_extraction_pipeline():
     # make into an array and upload to s3
     # features: goals
     goals_array = np.array(features['goal_ids'])
-    upload_np_to_s3(goals_array, os.path.join(paths['train'], 'goal_ids.csv'))
+    upload_np_to_s3(goals_array, os.path.join(paths[data_split], 'goal_ids.csv'))
     del goals_array
+    del features['goal_ids']
     print('Uploaded goals successfully')
     
     # features: hypotheses
-    pbar = progressbar.ProgressBar(maxval=maxval_bar)
-    for i, hyp in pbar(enumerate(features['goal_asl_ids'])):
+    pbar3 = progressbar.ProgressBar(maxval=maxval_bar)
+    for i, hyp in pbar3(enumerate(features['goal_asl_ids'])):
         upload_np_to_s3(np.array(hyp), 
-                        os.path.join(paths['train'], 'goal_asl_ids_{}.csv'.format(i)))
+                        os.path.join(paths[data_split], 'goal_asl_ids_{}.csv'.format(i)))
     del features['goal_asl_ids']
     print('Uploaded hypotheses successfully')
     
     # labels: tactid ids
     labels_array = np.array(labels['tac_id'])
-    upload_np_to_s3(labels_array, os.path.join(paths['train'], 'tac_id.csv'))
+    upload_np_to_s3(labels_array, os.path.join(paths[data_split], 'tac_id.csv'))
     del labels_array
     print('Uploaded labels (tactics) successfully')
     
