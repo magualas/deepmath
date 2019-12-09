@@ -22,7 +22,7 @@ import progressbar
 # config
 BUCKET_NAME = 'sagemaker-cs281'
 PARTITION_SIZE = 5000
-paths = {
+data_paths = {
     'train':'deephol-data-processed/proofs/human/train',
     'valid':'deephol-data-processed/proofs/human/valid',
     'test':'deephol-data-processed/proofs/human/test'
@@ -139,15 +139,35 @@ def run_extraction_pipeline(data_split=None):
     n_partitions = len(Y_train) // partition_size
     print(len(Y_train), partition_size, n_partitions)
     for i, split in enumerate(np.array_split(X_train, n_partitions), 1):
-        upload_np_to_s3(split, os.path.join(paths[data_split], 'X_train_{}.csv'.format(i)))
+        upload_np_to_s3(split, os.path.join(data_paths[data_split], 'X_train_{}.csv'.format(i)))
     print('Uploaded all X_train files')
     for i, split in enumerate(np.array_split(X_train_hyp, n_partitions), 1):
-        upload_np_to_s3(split, os.path.join(paths[data_split], 'X_train_hyp_{}.csv'.format(i)))
+        upload_np_to_s3(split, os.path.join(data_paths[data_split], 'X_train_hyp_{}.csv'.format(i)))
     print('Uploaded all X_train_hyp files')
-    upload_np_to_s3(Y_train, os.path.join(paths[data_split], 'Y_train.csv'))
+    upload_np_to_s3(Y_train, os.path.join(data_paths[data_split], 'Y_train.csv'))
     print('Uploaded Y_train file')
     
     return 'Success'
+
+def get_partition_and_labels(w_hyp=True, data_set='train'):
+    """ Create a dictionary called partition where:
+        - in partition['train']: a list of training IDs
+        - in partition['validation']: a list of validation IDs
+    """
+    
+    s3 = boto3.resource('s3')
+    my_bucket = s3.Bucket(BUCKET_NAME)
+    partition = {'train': [x.key for x in my_bucket.objects.filter(Prefix=paths['train'])], 
+                 'test': [x.key for x in my_bucket.objects.filter(Prefix=paths['test'])],
+                 'valid':[x.key for x in my_bucket.objects.filter(Prefix=paths['valid'])]}
+    
+    y_file = [x for x in partition[data_set] if x.find('Y_train') != -1]
+    if w_hyp:
+        X_files = [x for x in partition[data_set] if x.find('X_train_hyp') != (-1)]
+    else:
+        X_files = [x for x in partition[data_set] if x.find('X_train_hyp') == (-1) and x.find('Y_train') == -1]
+    
+    return X_files, y_file
 
 
 def upload_np_to_s3(array, object_name):    
