@@ -36,6 +36,7 @@ def run_extraction_pipeline(data_split=None):
         
     # get dataset parameters
     params = ingestor.get_params()
+    print(params)
 
     # make tf dataset of parsed examples
     train_data = data.get_train_dataset(params)
@@ -102,18 +103,13 @@ def run_extraction_pipeline(data_split=None):
     length_hyp = len(hypotheses)
     for i in range(length_hyp):
         if (len(hypotheses[i]) != 0):
-            # concatenate hypotheses in a given hypothesis list
-            hypotheses[i] = np.concatenate(hypotheses[i])
-            # remove zeroes in between
-            hypotheses[i] = hypotheses[i][hypotheses[i] != 0]
-            # truncate to max hypothesis length of 3000 characters, i.e. truncating less than 10% of data
-            hypotheses[i] = hypotheses[i][0:3000]
-            # pad with zeroes to make length 3000 (to save as csv)
-            len_conc = len(hypotheses[i])
+            hypotheses[i] = np.concatenate(hypotheses[i])  # concatenate hypotheses in a given hypothesis list
+            hypotheses[i] = hypotheses[i][hypotheses[i] != 0]  # remove zeroes in between
+            hypotheses[i] = hypotheses[i][0:3000]  # truncate to max hyp length = 3000 chars (< than 10% of data
+            len_conc = len(hypotheses[i]) # pad with zeroes to make length 3000 (to save as csv)
             hypotheses[i] = np.pad(hypotheses[i], (0, 3000-len_conc), mode='constant')
         else:
             hypotheses[i] = np.zeros(3000, dtype = 'int32')
-
     np.set_printoptions(threshold=np.sys.maxsize)
     print(np.shape(hypotheses))
 
@@ -132,14 +128,10 @@ def run_extraction_pipeline(data_split=None):
     length = len(X_train)
     X_train_hyp = []
     for i in range(length):
-        # concatenate goal and hypotheses
-        train_example = np.concatenate((X_train[i], hypotheses[i]))
-        # remove zeroes in between
-        train_example = train_example[train_example != 0]
-        # truncate to max hypothesis length of 3000 characters, i.e. truncating less than 10% of data
-        train_example = train_example[0:3000]
-        # pad with zeroes to make length 3000 (to save as csv)
-        len_conc = len(train_example)
+        train_example = np.concatenate((X_train[i], hypotheses[i]))  # concatenate goal and hypotheses
+        train_example = train_example[train_example != 0]  # remove zeroes in between
+        train_example = train_example[0:3000]  # truncate to max hyp length of 3000 chars (less than 10% of data
+        len_conc = len(train_example)  # pad with zeroes to make length 3000 (to save as csv)
         train_example = np.pad(train_example, (0, 3000-len_conc), mode='constant')
         X_train_hyp.append(np.asarray(train_example, dtype='float64').tolist())
     X_train_hyp = np.array(X_train_hyp)
@@ -149,10 +141,10 @@ def run_extraction_pipeline(data_split=None):
     partition_size = PARTITION_SIZE if len(Y_train) > 50000 else len(Y_train) 
     n_partitions = len(Y_train) // partition_size
     print(len(Y_train), partition_size, n_partitions)
-    for i, split in enumerate(np.array_split(X_train, n_partitions)):
+    for i, split in enumerate(np.array_split(X_train, n_partitions), 1):
         upload_np_to_s3(split, os.path.join(paths[data_split], 'X_train_{}.csv'.format(i)))
     print('Uploaded all X_train files')
-    for i, split in enumerate(np.array_split(X_train_hyp, n_partitions)):
+    for i, split in enumerate(np.array_split(X_train_hyp, n_partitions), 1):
         upload_np_to_s3(split, os.path.join(paths[data_split], 'X_train_hyp_{}.csv'.format(i)))
     print('Uploaded all X_train_hyp files')
     upload_np_to_s3(Y_train, os.path.join(paths[data_split], 'Y_train.csv'))
