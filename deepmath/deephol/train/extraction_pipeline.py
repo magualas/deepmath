@@ -21,6 +21,7 @@ import progressbar
 
 # config
 BUCKET_NAME = 'sagemaker-cs281'
+PARTITION_SIZE = 50000
 paths = {
     'train':'deephol-data-processed/proofs/human/train',
     'valid':'deephol-data-processed/proofs/human/valid',
@@ -28,6 +29,8 @@ paths = {
 }
 
 def run_extraction_pipeline(data_split=None):
+    """
+    """
     if not data_split:
         raise Exception('Need to specifiy if train, test or valid')
         
@@ -43,71 +46,120 @@ def run_extraction_pipeline(data_split=None):
     features = {'goal': [], 'goal_asl': [], 'thms': [], 'thms_hard_negatives': []}
     labels = {'tac_id': []}
 
-    # iterate over dataset to extract data into arrays. 
-    maxval_bar = 400000
-    pbar = progressbar.ProgressBar(maxval=maxval_bar)
-    train_parsed = train_parsed  # remove 'take' part to iterate over the entire dataset
-    for raw_record in pbar(train_parsed):
+    # iterate over dataset to extract data into arrays
+    train_parsed = train_parsed.take(100) # CHANGE HERE
+    for raw_record in train_parsed:
         fx, lx = raw_record[0], raw_record[1]
         features['goal'].append(fx['goal'])
         features['goal_asl'].append(fx['goal_asl'])
         features['thms'].append(fx['thms'])
         features['thms_hard_negatives'].append(fx['thms_hard_negatives'])
         labels['tac_id'].append(lx['tac_id'])
-    print('Success: extracting data into arrays for goals, thms and tactics')
 
     # instantiate extractor object
     ex = extractor2.Extractor(params)
 
     # tokenize goals
     features['goal_ids'] = ex.tokenize(features['goal'], ex.vocab_table)
-    print('Success: tokenizing goals')
 
-    # tokenize hypotheses. this requires more work since there may be more than one hypothesis
+    # tokenize hypotheses
     length = len(features['goal'])
-    features['goal_asl_ids'] =  [[]] * length
-    print('1')
-    pbar2 = progressbar.ProgressBar()
-    print('2')
-    for i in pbar2(range(length)):
-        # pad all hypotheses to be of length 1000
+    features['goal_asl_ids'] = []
+    for i in range(length):
         temp = ex.tokenize(features['goal_asl'][i], ex.vocab_table)
-        hypo_list = [[]] * len(temp)
-        for j in range(len(temp)):
-            l = len(temp[j])
-            h = tf.pad(temp[j], [[0, 1000-l]], constant_values=0)
-            hypo_list[j] = h
-        features['goal_asl_ids'][i] = np.array(hypo_list)
-    print('Success: tokenizing hypotheses')
+        features['goal_asl_ids'].append(temp)
 
-    # free up memory
+    # free memory
     del features['goal']
     del features['goal_asl']
     del features['thms']
     del features['thms_hard_negatives']
 
-    # make into an array and upload to s3
-    # features: goals
-    goals_array = np.array(features['goal_ids'])
-    upload_np_to_s3(goals_array, os.path.join(paths[data_split], 'goal_ids.csv'))
-    del goals_array
-    del features['goal_ids']
-    print('Uploaded goals successfully')
+    # features['goal_ids'] is now an array of size 2000 x 1000
+    features['goal_ids'] = features['goal_ids'].numpy()
+    print('Number of training examples:', len(features['goal_ids']))
+    print('Size of training examples:', len(features['goal_ids'][0]))
+
+    # features['goal_asl_ids'] is now an array of size 2000 x ? x 1000
+    length = len(features['goal_asl_ids'])
+    for i in range(length):
+        features['goal_asl_ids'][i] = [hypothesis.numpy() 
+                                       for hypothesis in features['goal_asl_ids'][i]]
+    print('Number of training examples:', len(features['goal_asl_ids']))
+    print('Number of hypotheses for an example:', len(features['goal_asl_ids'][0]))
+    print('Size of each hypothesis:', len(features['goal_asl_ids'][0][0]))
+
+    # features['tactic_ids'] is now an array of size 2000 x 1
+    labels['tac_id'] = [i.numpy() for i in labels['tac_id']]
+    print('Number of training examples:', len(labels['tac_id']))
+
+    # convert goals to numpy arrays
+    goals = np.array(features['goal_ids'])
+    print(np.shape(goals))
+
+    # convert goal hypotheses to numpy arrays and concatenate
+    hypotheses = features['goal_asl_ids']
+    length_hyp = len(hypotheses)
+    for i in range(length_hyp):
+        if (len(hypotheses[i]) != 0):
+            # concatenate hypotheses in a given hypothesis list
+            hypotheses[i] = np.concatenate(hypotheses[i])
+            # remove zeroes in between
+            hypotheses[i] = hypotheses[i][hypotheses[i] != 0]
+            # truncate to max hypothesis length of 3000 characters, i.e. truncating less than 10% of data
+            hypotheses[i] = hypotheses[i][0:3000]
+            # pad with zeroes to make length 3000 (to save as csv)
+            len_conc = len(hypotheses[i])
+            hypotheses[i] = np.pad(hypotheses[i], (0, 3000-len_conc), mode='constant')
+        else:
+            hypotheses[i] = np.zeros(3000, dtype = 'int32')
+
+    np.set_printoptions(threshold=np.sys.maxsize)
+    print(np.shape(hypotheses))
+
+    # convert tactics to numpy arrays and one-hot encode
+    a = np.array(labels['tac_id'])
+    tactics = np.zeros((a.size, 40+1))
+    tactics[np.arange(a.size),a] = 1
+    print(np.shape(tactics))
+
+    X_train, Y_train = goals, tactics
+    print(np.shape(X_train))
+    print(np.shape(Y_train))
+    print(np.shape(hypotheses))
+
+    # create feature matrix with goals and hypotheses
+    length = len(X_train)
+    X_train_hyp = []
+    for i in range(length):
+        # concatenate goal and hypotheses
+        train_example = np.concatenate((X_train[i], hypotheses[i]))
+        # remove zeroes in between
+        train_example = train_example[train_example != 0]
+        # truncate to max hypothesis length of 3000 characters, i.e. truncating less than 10% of data
+        train_example = train_example[0:3000]
+        # pad with zeroes to make length 3000 (to save as csv)
+        len_conc = len(train_example)
+        train_example = np.pad(train_example, (0, 3000-len_conc), mode='constant')
+        X_train_hyp.append(np.asarray(train_example, dtype='float64').tolist())
+    X_train_hyp = np.array(X_train_hyp)
+    print(np.shape(X_train_hyp))    
     
-    # features: hypotheses
-    pbar3 = progressbar.ProgressBar(maxval=maxval_bar)
-    for i, hyp in pbar3(enumerate(features['goal_asl_ids'])):
-        upload_np_to_s3(np.array(hyp), 
-                        os.path.join(paths[data_split], 'goal_asl_ids_{}.csv'.format(i)))
-    del features['goal_asl_ids']
-    print('Uploaded hypotheses successfully')
+    # save to s3
+    partition_size = PARTITION_SIZE if len(Y_train) > 50000 else len(Y_train) 
+    n_partitions = len(Y_train) // partition_size
+    print(len(Y_train), partition_size, n_partitions)
+    for i, split in enumerate(np.array_split(X_train, n_partitions)):
+        upload_np_to_s3(split, os.path.join(paths[data_split], 'X_train_{}.csv'.format(i)))
+    print('Uploaded all X_train files')
+    for i, split in enumerate(np.array_split(X_train_hyp, n_partitions)):
+        upload_np_to_s3(split, os.path.join(paths[data_split], 'X_train_hyp_{}.csv'.format(i)))
+    print('Uploaded all X_train_hyp files')
+    upload_np_to_s3(Y_train, os.path.join(paths[data_split], 'Y_train.csv'))
+    print('Uploaded all Y_train file')
     
-    # labels: tactid ids
-    labels_array = np.array(labels['tac_id'])
-    upload_np_to_s3(labels_array, os.path.join(paths[data_split], 'tac_id.csv'))
-    del labels_array
-    print('Uploaded labels (tactics) successfully')
-    
+    return X_train, X_train_hyp, Y_train
+
 
 def upload_np_to_s3(array, object_name):    
     # save localy
