@@ -83,6 +83,7 @@ class Keras_DataGenerator(keras.utils.Sequence):
     def __getitem__(self, index):
         'Generate one batch of data'
         if self.partition_index >= len(self.features_keys_lst) - 1:
+#             pass #if you put this pass on the 
             self.on_epoch_end(self)
         
         try:
