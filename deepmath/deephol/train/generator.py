@@ -77,14 +77,16 @@ class Keras_DataGenerator(keras.utils.Sequence):
         print('Generating examples from a set of {} examples'.format(self.n))
 
     def __len__(self):
-        'Denotes the number of batches per epoch'
-        return int(np.floor(self.n / self.batch_size))
+        """ Denotes the number of batches per epoch 
+            subtract 1 unfull batch per partition """
+        
+        return int(np.floor(self.n / self.batch_size)) - len(self.features_keys_lst) - 1
 
     def __getitem__(self, index):
         'Generate one batch of data'
         if self.partition_index >= len(self.features_keys_lst) - 1:
 #             pass #if you put this pass on the 
-            self.on_epoch_end(self)
+            self.on_epoch_end()
         
         try:
             X, y = next(self.reader_X_lst[self.partition_index]), next(self.reader_Y)
