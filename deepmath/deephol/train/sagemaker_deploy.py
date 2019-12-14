@@ -15,7 +15,6 @@ import os
 import sagemaker
 import numpy as np
 from sagemaker.tensorflow import TensorFlow
-from tensorflow.python.keras.preprocessing.image import load_img
 
 
 # IAM role
@@ -36,20 +35,23 @@ hyperparameters={
     "learning_rate": 1e-4,
     "decay": 1e-6
 }
+
+# data
 train_input_path = "s3://{}/{}/train/".format(bucket, key)
-validation_input_path = "s3://{}/{}/validation/".format(bucket, key)
+validation_input_path = "s3://{}/{}/valid/".format(bucket, key)
 
 
 # estimator
 estimator = TensorFlow(
-  entry_point=os.path.join(os.path.dirname(__file__), "train_and_deploy.py"),     # Your entry script
-  role=role,
-  framework_version="1.12.0",               # TensorFlow's version
-  hyperparameters=hyperparameters,
-  training_steps=1000,
-  evaluation_steps=100,
-  train_instance_count=n_GPUs,                   # "The number of GPUs instances to use"
-  train_instance_type=train_instance_type,
+      entry_point=os.path.join(os.getcwd(), "train_and_deploy.py"),     # Your entry script
+      role=role,
+      py_version = 'py3',
+      framework_version="1.12.0",               # TensorFlow's version
+      hyperparameters=hyperparameters,
+#       training_steps=1000, # does not work with python 3
+#       evaluation_steps=100,
+      train_instance_count=n_GPUs,                   # "The number of GPUs instances to use"
+      train_instance_type=train_instance_type,
 )
 
 print("Training ...")
