@@ -80,7 +80,7 @@ class Keras_DataGenerator(keras.utils.Sequence):
         """ Denotes the number of batches per epoch 
             subtract 1 unfull batch per partition """
         
-        return 200 #int(np.floor(self.n / self.batch_size)) - len(self.features_keys_lst) - 1
+        return 50 #int(np.floor(self.n / self.batch_size)) - len(self.features_keys_lst) - 1
 
     def __getitem__(self, index):
         'Generate one batch of data'
