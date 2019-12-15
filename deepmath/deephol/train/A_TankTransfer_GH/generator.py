@@ -58,7 +58,7 @@ class Keras_DataGenerator(keras.utils.Sequence):
 
     """
     def __init__(self, dataset='train',batch_size=64,
-                 w_hyp=False, n_channels=1, n_classes=41, shuffle=True):
+                 w_hyp=False, n_channels=1, n_classes=41, shuffle=False):
         self.w_hyp = w_hyp
         self.dim = 3000 if self.w_hyp else 1000 
         self.batch_size = batch_size
@@ -80,7 +80,7 @@ class Keras_DataGenerator(keras.utils.Sequence):
         """ Denotes the number of batches per epoch 
             subtract 1 unfull batch per partition """
         
-        return int(np.floor(self.n / self.batch_size)) - len(self.features_keys_lst) - 1
+        return 50#int(np.floor(self.n / self.batch_size)) - len(self.features_keys_lst) - 1
 
     def __getitem__(self, index):
         'Generate one batch of data'
