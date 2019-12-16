@@ -100,7 +100,7 @@ class Keras_DataGenerator(keras.utils.Sequence):
         
         # randomize order if needed in epoch ends
         self.on_epoch_end()
-        print('Generating examples from a set of {} examples'.format(self.n))
+        print('Generating examples from a set of {} examples \n'.format(self.n))
 
     def __len__(self):
         """ Denotes the number of batches per epoch """
