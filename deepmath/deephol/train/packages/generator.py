@@ -104,7 +104,8 @@ class Keras_DataGenerator(keras.utils.Sequence):
 
     def __len__(self):
         """ Denotes the number of batches per epoch """
-        return 500 #int(np.floor(self.n / self.batch_size))
+        return 1000 #int(np.floor(self.n / self.batch_size))
+
 
     def __getitem__(self, index):
         """ Generate one batch of data """
