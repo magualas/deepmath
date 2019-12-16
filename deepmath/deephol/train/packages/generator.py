@@ -61,8 +61,7 @@ class Keras_DataGenerator(keras.utils.Sequence):
             * /Y_train.csv
 
     """
-    def __init__(self, data_dir, dataset, batch_size=64, w_hyp=False, 
-                 n_channels=1, n_classes=41, shuffle=True):
+    def __init__(self, data_dir, dataset, batch_size=64, w_hyp=False, n_classes=41, shuffle=True):
         # main attributes
         self.w_hyp = w_hyp
         self.dim = 3000 if self.w_hyp else 1000 
@@ -105,30 +104,30 @@ class Keras_DataGenerator(keras.utils.Sequence):
         current_batch_id = self.batch_ids[index]
         current_partition = int(np.floor(current_batch_id / self.batches_per_partition))
         partition_path = os.path.join('s3://', BUCKET_NAME, self.data_dir, self.dataset)
-        partial_filename = '_train{}_{}.csv'.format('_hyp' if self.w_hyp else '', current_partition)
+        X_filename = 'X_train{}_{}.csv'.format('_hyp' if self.w_hyp else '', current_partition)
+        Y_filename = 'Y_train_{}.csv'.format(current_partition)
         
         # get batch
         try:
-            X_batch = pd.read_csv(os.path.join(partition_path, 'X' + partial_filename),
+            X_batch = pd.read_csv(os.path.join(partition_path, X_filename),
                                   skiprows=current_batch_id%self.partition_size, 
                                   nrows=self.batch_size,
                                   header=None)
-            Y_batch = pd.read_csv(os.path.join(partition_path, 'Y' + partial_filename),
+            Y_batch = pd.read_csv(os.path.join(partition_path, Y_filename),
                                   skiprows=current_batch_id%self.partition_size, 
                                   nrows=self.batch_size,
                                   header=None)
         except Exception as e:
-            print(e)
+            print('ERROR: ', e)
             
-        # unnecessary (debugging purposes)
+        # needed to keep the .__next__() method working
         self.batch_index += 1
         
         return X_batch.values, Y_batch.values
     
     def __next__(self):
         """ Make whole object a generator"""
-        i = None
-        return self.__getitem__(i)
+        return self.__getitem__(self.batch_index)
     
     def on_epoch_end(self):
         """ Updates indexes after each epoch """
