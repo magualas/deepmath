@@ -9,6 +9,15 @@ code for amazon sagemaker training
 import os
 import numpy as np
 
+
+import keras
+from keras.models import Sequential
+from keras.layers import Dense, Embedding, LSTM, SpatialDropout1D, Bidirectional
+from keras.utils.np_utils import to_categorical
+from keras.callbacks import EarlyStopping
+from keras.layers import Dropout
+from sklearn.model_selection import train_test_split
+
 import tensorflow as tf
 from tensorflow.python.estimator.export.export import build_raw_serving_input_receiver_fn
 from tensorflow.python.estimator.export.export_output import PredictOutput
@@ -27,26 +36,26 @@ BATCH_SIZE = 64
 VOCAB_SIZE = 1254
 INPUT_LENGTH = 3000 if W_HYP else 1000
 EMBEDDING_DIM = 128
-
 # sagemaker_session = sagemaker.Session()
 # role = get_execution_role()s
 
 
 # WHEN do we find training_dir?
-training_dir = 'deephol-data-processed/proofs/human'
+# training_dir = 'deephol-data-processed/proofs/human'
 
 
 def keras_model_fn(hyperparameters):
+    # architecture
     model = Sequential()
     model.add(Embedding(VOCAB_SIZE, EMBEDDING_DIM, input_length=INPUT_LENGTH, name='inputs'))
     model.add(SpatialDropout1D(0.2))
     model.add(CuDNNLSTM(4))
     model.add(Dense(41, activation='softmax'))
     
-    # can use keras class to add parameters
+    # optimizer: can use keras class to add parameters
     opt = 'adam'
     
-    # can use keras class to add parameters
+    # loss: can use keras class to add parameters
     loss = 'categorical_crossentropy'
 
     model.compile(loss=loss, optimizer=opt, metrics=['accuracy'])
@@ -90,13 +99,6 @@ def _input(mode, batch_size, data_dir):
     features, labels = next(datagen)
 
     return {INPUT_TENSOR_NAME: features}, labels
-
-
-
-
-
-
-
 
 
 if __name__ =='__main__':

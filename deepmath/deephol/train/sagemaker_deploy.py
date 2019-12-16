@@ -40,7 +40,6 @@ hyperparameters={
 train_input_path = "s3://{}/{}/train/".format(bucket, key)
 validation_input_path = "s3://{}/{}/valid/".format(bucket, key)
 
-
 # estimator
 estimator = TensorFlow(
       entry_point=os.path.join(os.getcwd(), "train_and_deploy.py"),     # Your entry script
@@ -48,10 +47,10 @@ estimator = TensorFlow(
       py_version = 'py3',
       framework_version="1.12.0",               # TensorFlow's version
       hyperparameters=hyperparameters,
-#       training_steps=1000, # does not work with python 3
-#       evaluation_steps=100,
       train_instance_count=n_GPUs,                   # "The number of GPUs instances to use"
-      train_instance_type=train_instance_type,
+      train_instance_type=train_instance_type             #,
+#       training_steps=1000, # does not work with python 3
+#       evaluation_steps=100
 )
 
 print("Training ...")
