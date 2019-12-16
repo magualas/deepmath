@@ -63,7 +63,7 @@ class Keras_DataGenerator(keras.utils.Sequence):
 
     """
     def __init__(self, data_dir, dataset, batch_size=64, w_hyp=False, 
-                 n_classes=41, shuffle=True, subset_frac=None):
+                 n_classes=41, shuffle=False, subset_frac=None):
         # input valid
         if dataset not in ['train_new', 'test_new', 'valid_new']:
             raise Exception('given dataset type must be _new to include the new dataset partitioning')
@@ -104,7 +104,7 @@ class Keras_DataGenerator(keras.utils.Sequence):
 
     def __len__(self):
         """ Denotes the number of batches per epoch """
-        return int(np.floor(self.n / self.batch_size))
+        return 1000 #int(np.floor(self.n / self.batch_size))
 
     def __getitem__(self, index):
         """ Generate one batch of data """
