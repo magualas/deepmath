@@ -178,3 +178,19 @@ def upload_np_to_s3(array, object_name):
     # s3 upload
     s3_client = boto3.client('s3')
     response = s3_client.upload_file(local_filename, BUCKET_NAME, object_name)
+    
+    
+def split_array_batches(array):
+    """ split in equal length arrays """
+    n_examples = len(array)
+    partition_size = 4096
+    end_to_skip = n_examples % partition_size  # have partitions of equal length
+    print('skipping {} examples to have equal length batches'.format(end_to_skip))
+    n_partitions = (n_examples - end_to_skip) / partition_size 
+
+    print('partition size: {}'.format(partition_size))
+    print('shape of truncated array: ', array[:-end_to_skip].shape)
+
+    splits = np.split(array[:-end_to_skip], n_partitions)
+    
+    return splits

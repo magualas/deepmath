@@ -7,9 +7,10 @@ Generator for batch training on keras models
 
 """
 
-import pandas as pd
 import os
 import numpy as np
+import pandas as pd
+import csv
 import boto3
 import tensorflow as tf
 # print(tf.__version__)
@@ -22,8 +23,6 @@ from keras.callbacks import EarlyStopping
 from keras.layers import Dropout
 from sklearn.model_selection import train_test_split
 from botocore.client import ClientError
-# from smart_open import smart_open
-import csv
 
 
 # config
@@ -31,16 +30,21 @@ BUCKET_NAME = 'sagemaker-cs281'
 config = {'AWS_REGION':'us-east-2',        
           'S3_ENDPOINT':'s3.us-east-2.amazonaws.com', 
           'S3_USE_HTTPS':'1',                 
-          'S3_VERIFY_SSL':'1',  }
+          'S3_VERIFY_SSL':'1'}
 os.environ.update(config)
-line_counts = {'train':376968, 'test':122928, 'valid':104054}
+line_counts = {'train': 376968, 'test': 122928, 'valid': 104054,
+               'train_new': 376968, 'test_new': 122928, 'valid_new': 104054}
 
 
 class Keras_DataGenerator(keras.utils.Sequence):
     """ Generates data for Keras
     
+        !! data_dir arg is not necessary atm
+    
         Usage: 
-            training_generator = generator.My_DataGenerator(dataset='train')
+            training_generator = generator.My_DataGenerator(data_dir='', dataset='train_new', 
+                                                  w_hyp=W_HYP, batch_size=BATCH_SIZE,
+                                                  shuffle=shuffle)
             validation_generator = generator.My_DataGenerator(dataset='valid')
             history = model.fit_generator(generator=training_generator,
                                           validation_data=validation_generator,
@@ -57,25 +61,37 @@ class Keras_DataGenerator(keras.utils.Sequence):
             * /Y_train.csv
 
     """
-    def __init__(self, data_dir, dataset='train',batch_size=64,
-                 w_hyp=False, n_channels=1, n_classes=41, shuffle=True):
+    def __init__(self, data_dir, dataset, batch_size=64, w_hyp=False, 
+                 n_channels=1, n_classes=41, shuffle=True):
+        # main attributes
         self.w_hyp = w_hyp
         self.dim = 3000 if self.w_hyp else 1000 
         self.batch_size = batch_size
         self.shuffle = shuffle
+        if dataset not in ['train_new', 'test_new', 'valid_new']:
+            raise Exception('given dataset type must be _new to include the new dataset partitioning')
         self.dataset = dataset
-        print('THIS IS self.data_dir', data_dir)
-#         self.data_dir = data_dir 
-        self.data_dir = 'deephol-data-processed/proofs/human'
+        self.data_dir = 'deephol-data-processed/proofs/human'  # self.data_dir = data_dir 
+        print('Input data_dir is: ', data_dir)
+    
+        # batch and partitions ids (some training examples ommitted to have batches of equal size)
+        self.partition_size = 4096
+        self.batches_per_partition = self.partition_size/self.batch_size
+        n_examples = line_counts[self.dataset]
+        end_to_skip = n_examples % 4096
+        self.n = n_examples - end_to_skip
+        self.batch_ids = list(range(int(self.n / self.batch_size)))
+        self.partition_ids = list(range(int(self.n / self.partition_size)))
+        print('# of batches: ', self.n / self.batch_size)
+        print('# of partitions: ', self.n / self.partition_size)
+        self.batch_index = 0
         
         # paths
-        X_paths, Y_path = self.get_partition_and_labels()
-        self.features_keys_lst = X_paths
-        self.label_key = Y_path[0]
-        self.n = line_counts[self.dataset]
-        self.partition_index = 0
+        X_paths, Y_paths = self._get_partition_and_labels()
+        self.features_keys = X_paths
+        self.labels_keys = Y_paths
         
-        # initialize readers
+        # randomize order if needed in epoch ends
         self.on_epoch_end()
         print('Generating examples from a set of {} examples'.format(self.n))
 
@@ -84,72 +100,62 @@ class Keras_DataGenerator(keras.utils.Sequence):
         return int(np.floor(self.n / self.batch_size))
 
     def __getitem__(self, index):
-        'Generate one batch of data'
-        if self.partition_index >= len(self.features_keys_lst) - 1:
-#             pass #if you put this pass on the 
-            self.on_epoch_end(self)
-    
-        try:
-            X, y = next(self.reader_X_lst[self.partition_index]), next(self.reader_Y)
-        except Exception as e:
-            self.partition_index += 1
-            X, y = next(self.reader_X_lst[self.partition_index]), next(self.reader_Y)
-        else:
-            if len(X) < 64:
-                self.partition_index += 1
-                X, y = next(self.reader_X_lst[self.partition_index]), next(self.reader_Y)
+        """ Generate one batch of data """
+        # find corresponding partition
+        current_batch_id = self.batch_ids[index]
+        current_partition = int(np.floor(current_batch_id / self.batches_per_partition))
+        partition_path = os.path.join('s3://', BUCKET_NAME, self.data_dir, self.dataset)
+        partial_filename = '_train{}_{}.csv'.format('_hyp' if self.w_hyp else '', current_partition)
         
-        return X.values, y.values
+        # get batch
+        try:
+            X_batch = pd.read_csv(os.path.join(partition_path, 'X' + partial_filename),
+                                  skiprows=current_batch_id%self.partition_size, 
+                                  nrows=self.batch_size,
+                                  header=None)
+            Y_batch = pd.read_csv(os.path.join(partition_path, 'Y' + partial_filename),
+                                  skiprows=current_batch_id%self.partition_size, 
+                                  nrows=self.batch_size,
+                                  header=None)
+        except Exception as e:
+            print(e)
+            
+        # unnecessary (debugging purposes)
+        self.batch_index += 1
+        
+        return X_batch.values, Y_batch.values
     
     def __next__(self):
+        """ Make whole object a generator"""
         i = None
-        result = self.__getitem__(i)
-        return result
+        return self.__getitem__(i)
     
-    def _initialize_readers(self):
-        paths_X = [os.path.join('s3://', BUCKET_NAME, x) for x in self.features_keys_lst]
-        path_Y = os.path.join('s3://', BUCKET_NAME, self.label_key)
-        self.reader_X_lst = [pd.read_csv(path, chunksize=self.batch_size, header=None, engine='python')
-                             for path in paths_X]
-        self.reader_Y = pd.read_csv(path_Y, chunksize=self.batch_size, header=None, engine='python')
-
     def on_epoch_end(self):
-        """Updates indexes after each epoch"""
-        # re initialize readers
-        self._initialize_readers()
-        self.list_partitions = self.features_keys_lst
-        if self.shuffle == True:
-            np.random.shuffle(self.list_partitions)
-        
+        """ Updates indexes after each epoch """
         # start from begining
-        self.partition_index = 0
+        self.batch_index = 0
+
+        if self.shuffle == True:
+            np.random.shuffle(self.batch_ids)
     
-    def get_partition_and_labels(self):
-        """ Create a dictionary called partition where:
-            - in partition['train']: a list of training IDs
-            - in partition['validation']: a list of validation IDs
-        """
+    def _get_partition_and_labels(self):
+        """ get all s3 paths to get data """
         s3_r = boto3.resource('s3')
         my_bucket = s3_r.Bucket(BUCKET_NAME)
         
         # paths as strings
-        dataset_keys = {s: '{}/{}/'.format(self.data_dir, s)
-                        for s in ['train', 'test', 'valid']}
-        partition = {dataset: [x.key for x in my_bucket.objects.filter(Prefix=dataset_keys[self.dataset])]
-                     for dataset in ['train', 'test', 'valid']}
-        print('Retrieving data from {}'.format(dataset_keys[self.dataset]))
+        dataset_key = os.path.join(self.data_dir, self.dataset) + '/'
+        partition = [x.key for x in my_bucket.objects.filter(Prefix=dataset_key)]
+        print('Retrieving data from; ', dataset_key)
         
         # get each file key
-        y_file = [x for x in partition[self.dataset] if x.find('/Y_train') != (-1)]
-        X_files_hyp = [x for x in partition[self.dataset] if x.find('/X_train_hyp_') != (-1)]
-        X_files = X_files_hyp if self.w_hyp else set(partition[self.dataset]) - set(y_file) - set(X_files_hyp)
+        Y_files = [x for x in partition if x.find('/Y_train') != (-1)]
+        X_files_hyp = [x for x in partition if x.find('/X_train_hyp_') != (-1)]
+        X_files = X_files_hyp if self.w_hyp else set(partition) - set(Y_files) - set(X_files_hyp)
         
         # sort (will be shuffled if shuffle=True)
         X_files = sorted(X_files, key=lambda x: (len(x), x))
+        Y_files = sorted(Y_files, key=lambda x: (len(x), x))
         
-        return X_files, y_file
+        return X_files, Y_files
     
-    
-# tests
-
-
