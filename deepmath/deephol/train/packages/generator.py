@@ -61,7 +61,8 @@ class Keras_DataGenerator(keras.utils.Sequence):
             * /Y_train.csv
 
     """
-    def __init__(self, data_dir, dataset, batch_size=64, w_hyp=False, n_classes=41, shuffle=True):
+    def __init__(self, data_dir, dataset, batch_size=64, w_hyp=False, 
+                 n_classes=41, shuffle=True, subset=None):
         # main attributes
         self.w_hyp = w_hyp
         self.dim = 3000 if self.w_hyp else 1000 
