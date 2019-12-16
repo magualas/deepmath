@@ -142,7 +142,7 @@ class Keras_DataGenerator(keras.utils.Sequence):
         # sort (will be shuffled if shuffle=True)
         X_files = sorted(X_files, key=lambda x: (len(x), x))
         
-        return X_files, y_file
+        return X_files_hyp, y_file
     
     
 # tests
