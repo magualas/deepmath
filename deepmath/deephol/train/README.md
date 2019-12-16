@@ -8,10 +8,11 @@ By Jeff, Tanc and Manu
     * python script that defines the behaviours of our model by the
 * sagemaker_deploy.py
     * script to run python-sagemaker-sdk
-
-
-
-
+* generator.py
+    * data generator to train on keras model.fit_generator()
+* extraction_pipeline_np.ipynb
+    * notebook to process all data
+    * must adapt data.py > get_train_dataset() to 'train'/'valid'/'test'
 
 
 ## Old

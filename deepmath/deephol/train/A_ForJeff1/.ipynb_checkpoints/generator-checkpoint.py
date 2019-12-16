@@ -57,16 +57,13 @@ class Keras_DataGenerator(keras.utils.Sequence):
             * /Y_train.csv
 
     """
-    def __init__(self, data_dir, dataset='train',batch_size=64,
-                 w_hyp=False, n_channels=1, n_classes=41, shuffle=True):
+    def __init__(self, dataset='train',batch_size=64,
+                 w_hyp=False, n_channels=1, n_classes=41, shuffle=False):
         self.w_hyp = w_hyp
         self.dim = 3000 if self.w_hyp else 1000 
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.dataset = dataset
-        print('THIS IS self.data_dir', data_dir)
-#         self.data_dir = data_dir 
-        self.data_dir = 'deephol-data-processed/proofs/human'
         
         # paths
         X_paths, Y_path = self.get_partition_and_labels()
@@ -80,15 +77,17 @@ class Keras_DataGenerator(keras.utils.Sequence):
         print('Generating examples from a set of {} examples'.format(self.n))
 
     def __len__(self):
-        'Denotes the number of batches per epoch'
-        return int(np.floor(self.n / self.batch_size))
+        """ Denotes the number of batches per epoch 
+            subtract 1 unfull batch per partition """
+        
+        return 500 #int(np.floor(self.n / self.batch_size)) - len(self.features_keys_lst) - 1
 
     def __getitem__(self, index):
         'Generate one batch of data'
         if self.partition_index >= len(self.features_keys_lst) - 1:
 #             pass #if you put this pass on the 
-            self.on_epoch_end(self)
-    
+            self.on_epoch_end()
+        
         try:
             X, y = next(self.reader_X_lst[self.partition_index]), next(self.reader_Y)
         except Exception as e:
@@ -100,11 +99,6 @@ class Keras_DataGenerator(keras.utils.Sequence):
                 X, y = next(self.reader_X_lst[self.partition_index]), next(self.reader_Y)
         
         return X.values, y.values
-    
-    def __next__(self):
-        i = None
-        result = self.__getitem__(i)
-        return result
     
     def _initialize_readers(self):
         paths_X = [os.path.join('s3://', BUCKET_NAME, x) for x in self.features_keys_lst]
@@ -131,9 +125,10 @@ class Keras_DataGenerator(keras.utils.Sequence):
         """
         s3_r = boto3.resource('s3')
         my_bucket = s3_r.Bucket(BUCKET_NAME)
+        full_dataset_key = 'deephol-data-processed/proofs/human'
         
         # paths as strings
-        dataset_keys = {s: '{}/{}/'.format(self.data_dir, s)
+        dataset_keys = {s: '{}/{}/'.format(full_dataset_key, s)
                         for s in ['train', 'test', 'valid']}
         partition = {dataset: [x.key for x in my_bucket.objects.filter(Prefix=dataset_keys[self.dataset])]
                      for dataset in ['train', 'test', 'valid']}

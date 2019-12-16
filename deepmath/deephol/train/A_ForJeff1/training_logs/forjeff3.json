@@ -1,0 +1,1 @@
+{"validation_data": null, "params": {"epochs": 1, "steps": 500, "verbose": 1, "do_validation": true, "metrics": ["loss", "acc", "val_loss", "val_acc"]}, "epoch": [0], "history": {"val_loss": [3.1553284096717835], "val_acc": [0.23671875], "loss": [1.8410394563674928], "acc": [0.4359375]}}
