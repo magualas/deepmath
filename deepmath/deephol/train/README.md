@@ -9,6 +9,13 @@ From the original README: This directory contains training code used for the Wav
 
 We then have the following packages to process and train models for tactic selections:
 
+* /A_Folders
+    * Each folder contains a model that was tried. 
+    * Attention vs Simple
+    * G vs GH = Goals vs Goals and Hypothesis
+    * SS, S, L, T = SS = Super Small, Small, Large, Transfer (Models that were first trained on smaller datasets)
+
+
 * /packages
     * generator.py: data generator to train on keras model.fit_generator()
     * utils.py: utilities function, AWS and tensorflow config
