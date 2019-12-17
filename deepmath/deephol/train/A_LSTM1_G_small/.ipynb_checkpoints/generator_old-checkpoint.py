@@ -77,13 +77,25 @@ class Keras_DataGenerator(keras.utils.Sequence):
         print('Generating exampldes from a set of {} examples'.format(self.n))
 
     def __len__(self):
+<<<<<<< HEAD:deepmath/deephol/train/.ipynb_checkpoints/generator-checkpoint.py
+        """ Denotes the number of batches per epoch 
+            subtract 1 unfull batch per partition """
+        
+        return int(np.floor(self.n / self.batch_size)) - len(self.features_keys_lst) - 1
+=======
         'Denotes the number of batches per epoch'
         return 10 #int(np.floor(self.n / self.batch_size)) - len(self.features_keys_lst)
+>>>>>>> 203e00effc4ddd561485fd226d2c04948f435427:deepmath/deephol/train/A_LSTM1_G_small/.ipynb_checkpoints/generator_old-checkpoint.py
 
     def __getitem__(self, index):
         'Generate one batch of data'
         if self.partition_index >= len(self.features_keys_lst) - 1:
+<<<<<<< HEAD:deepmath/deephol/train/.ipynb_checkpoints/generator-checkpoint.py
+#             pass #if you put this pass on the 
+            self.on_epoch_end()
+=======
             self.on_epoch_end(self)
+>>>>>>> 203e00effc4ddd561485fd226d2c04948f435427:deepmath/deephol/train/A_LSTM1_G_small/.ipynb_checkpoints/generator_old-checkpoint.py
         
         try:
             X, y = next(self.reader_X_lst[self.partition_index]), next(self.reader_Y)

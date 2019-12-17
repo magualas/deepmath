@@ -1,11 +1,18 @@
 '''
 Utils
 '''
+<<<<<<< HEAD
 import boto3
 import os
 
 import json
 
+=======
+
+import boto3
+import os
+import json
+>>>>>>> 9afc01edfcbf33f6925277f1e3bc1e5bf18041c2
 import numpy as np
 
 from keras import backend as K
@@ -22,19 +29,29 @@ def aws_setup():
     s3_client = boto3.client('s3') 
     os.environ.update(config)
     print("AWS SETUP SHOULD BE COMPLETE, we are on " + str(s3_client))
+<<<<<<< HEAD
     
+=======
+>>>>>>> 9afc01edfcbf33f6925277f1e3bc1e5bf18041c2
 
 
 def GPU_checker():
     n_GPUs = len(K.tensorflow_backend._get_available_gpus())
     print("You are runnning an instance with " + str(n_GPUs) + " GPU's")
 
+<<<<<<< HEAD
+=======
+    
+>>>>>>> 9afc01edfcbf33f6925277f1e3bc1e5bf18041c2
 def GPU_count():
     n_GPUs = len(K.tensorflow_backend._get_available_gpus())
     return n_GPUs
 
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9afc01edfcbf33f6925277f1e3bc1e5bf18041c2
 def history_saver_bad(history, LOSS_FILE_NAME):
     '''this needs to be improved'''
     loss_history = history.history['loss']    
@@ -54,6 +71,12 @@ def history_saver_bad(history, LOSS_FILE_NAME):
         
     print("SAVED SOME LOGS -- OVERWROTE OLD LOGS -- SOMEONE NEEDS TO FIX THIS")
     
+<<<<<<< HEAD
+=======
+def save_history_obj_as_json(history, filename):
+    pass
+    
+>>>>>>> 9afc01edfcbf33f6925277f1e3bc1e5bf18041c2
     
     
     
